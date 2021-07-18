@@ -1,0 +1,83 @@
+function [fb_sim] = acc_gen (N,imu,dt)
+% acc_gen: generates simulated accelerometers measuremenT from reference
+%  data and IMU error profile.
+%
+% INPUT
+%	ref: data structure with true trajectory.
+%	imu: data structure with IMU error profile.
+%
+% OUTPUT
+%	fb_sim: Nx3 matrix with simulated accelerations in the
+%	body frame [X Y Z] (m/s^2, m/s^2, m/s^2).
+%
+%   Copyright (C) 2014, Rodrigo González, all righT reserved.
+%
+%   This file is part of NaveGo, an open-source MATLAB toolbox for
+%   simulation of integrated navigation systems.
+%
+%   NaveGo is free software: you can redistribute it and/or modify
+%   it under the terms of the GNU Lesser General Public License (LGPL)
+%   version 3 as published by the Free Software Foundation.
+%
+%   This program is distributed in the hope that it will be useful,
+%   but WITHOUT ANY WARRANTY; without even the implied warranty of
+%   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%   GNU Lesser General Public License for more details.
+%
+%   You should have received a copy of the GNU Lesser General Public
+%   License along with this program. If not, see
+%   <http://www.gnu.org/licenses/>.
+%
+% References:
+%
+%	R. Gonzalez, J. Giribet, and H. Patiño. NaveGo: a
+% simulation framework for low-cost integrated navigation systems,
+% Journal of Control Engineering and Applied Informatics, vol. 17,
+% issue 2, pp. 110-120, 2015. Sec. 2.2.
+%
+%   Aggarwal, P. et al. MEMS-Based Integrated Navigation. Artech
+% House. 2010.
+%
+%   Thinking about accelerometers and gravity by Dave Redell
+% http://www.lunar.org/docs/LUNARclips/v5/v5n1/Accelerometers.html
+%
+% Version: 010
+% Date:    2021/03/17
+% Author:  Rodrigo Gonzalez <rodralez@frm.utn.edu.ar>
+% URL:     https://github.com/rodralez/navego
+
+M = [N, 3];
+
+%% SIMULATION OF NOISES
+
+% -------------------------------------------------------------------------
+% Simulation of static bias as a constant random variable
+
+ab_sta = noise_b_sta (imu.ab_sta, N);
+
+% -------------------------------------------------------------------------
+% Simulation of white noise
+
+wn = randn(M);
+a_wn = zeros(M);
+
+for i=1:3
+    a_wn(:, i) = imu.a_std(i).* wn(:,i);
+end
+
+% -------------------------------------------------------------------------
+% Simulation of dynamic bias (bias instability) as a first-order Gauss-Markov model
+
+##dt = 1/ref.freq; 
+ab_dyn = noise_b_dyn (imu.ab_corr, imu.ab_dyn, dt, M);
+
+% -------------------------------------------------------------------------
+% Simulation of rate random walk
+
+a_rrw = noise_rrw (imu.vrrw, dt, M);
+
+% -------------------------------------------------------------------------
+
+fb_sim = a_wn(:,1) + ab_sta(:,1)+ ab_dyn(:,1) + a_rrw(:,1);
+
+end
